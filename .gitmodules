@@ -1,0 +1,16 @@
+[submodule "twitter-user-data"]
+	path = twitter-user-data
+	url = https://github.com/KumaTea/twitter-user-data
+	branch = main
+[submodule "tweet-likes-predict"]
+	path = tweet-likes-predict
+	url = https://github.com/KumaTea/tweet-likes-predict
+	branch = main
+[submodule "twitter-progress-bar"]
+	path = twitter-progress-bar
+	url = https://github.com/KumaTea/twitter-progress-bar
+	branch = main
+[submodule "top-friends"]
+	path = top-friends
+	url = https://github.com/KumaTea/top-friends
+	branch = main
