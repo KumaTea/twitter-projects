@@ -1,9 +1,10 @@
+import os
 import json
-import time
 import base64
 import pickle
 import tweepy
 from datetime import datetime
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 
 def read_file(filename, encrypt=False):
@@ -13,8 +14,15 @@ def read_file(filename, encrypt=False):
     else:
         with open(filename, 'r') as f:
             return f.read()
+
+
 def query_token(token_id):
     return read_file(f'token_{token_id}', True)
+
+
+def notify(text):
+    text = f'[Real] {text}'
+    return os.system(f'/usr/bin/notify {text}')
 
 
 twitter_token = json.loads(query_token('twitter'))
@@ -39,21 +47,30 @@ def check():
         if user not in km_f:
             real.create_block(user)
             real.destroy_block(user)
-            print('    Successfully cleared', user)
+            msg = f'Cleared {user}'
+            notify(msg)
+            print(f'    {msg}')
         else:
             try:
                 real.create_friendship(user)
-                print('    Successfully followed', user)
+                msg = f'Followed {user}'
+                notify(msg)
+                print(f'    {msg}')
             except Exception as e:
                 print('    Error:', str(e))
 
     one_way = list(set(foing) - set(foer))
     for user in one_way:
         real.destroy_friendship(user)
-        print('    Successfully unfollowed', user)
+        msg = f'Unfollowed {user}'
+        notify(msg)
+        print(f'    {msg}')
 
 
 if __name__ == '__main__':
-    while 114514:
-        check()
-        time.sleep(3600)
+    # while 114514:
+    #     check()
+    #     time.sleep(3600)
+    scheduler = BlockingScheduler()
+    scheduler.add_job(check, 'cron', minute=0)
+    scheduler.start()
