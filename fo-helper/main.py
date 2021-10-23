@@ -20,9 +20,9 @@ def query_token(token_id):
     return read_file(f'token_{token_id}', True)
 
 
-def notify(text):
-    text = f'[Real] {text}'
-    return os.system(f'/usr/bin/notify {text}')
+def notify(text, user='Real'):
+    text = f'[{user}] {text}'
+    return os.system(f'/usr/local/bin/notify \"{text}\"')
 
 
 twitter_token = json.loads(query_token('twitter'))
@@ -38,22 +38,27 @@ with open('real.p', 'rb') as f:
 def check():
     print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     km_f = kuma.friends_ids()
+    # km_f = kuma.get_friend_ids()
+    km_fo = kuma.follower_ids()
 
     foer = real.followers_ids()
     foing = real.friends_ids()
 
+    # real
     new_fo = list(set(foer) - set(foing))
     for user in new_fo:
         if user not in km_f:
+            user_info = real.get_user(user)
             real.create_block(user)
             real.destroy_block(user)
-            msg = f'Cleared {user}'
+            msg = f'Cleared [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
             notify(msg)
             print(f'    {msg}')
         else:
             try:
+                user_info = real.get_user(user)
                 real.create_friendship(user)
-                msg = f'Followed {user}'
+                msg = f'Followed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}'
                 notify(msg)
                 print(f'    {msg}')
             except Exception as e:
@@ -61,10 +66,19 @@ def check():
 
     one_way = list(set(foing) - set(foer))
     for user in one_way:
+        user_info = real.get_user(user)
         real.destroy_friendship(user)
-        msg = f'Unfollowed {user}'
+        msg = f'Unfollowed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}'
         notify(msg)
         print(f'    {msg}')
+
+    # kuma
+    for user in km_f:
+        if user not in km_fo:
+            user_info = kuma.get_user(user)
+            msg = f'!!! [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name} unfollowed you!'
+            notify(msg, user='Kuma')
+            print(f'    {msg}')
 
 
 if __name__ == '__main__':
