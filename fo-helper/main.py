@@ -39,7 +39,7 @@ def check():
     print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     km_f = kuma.friends_ids()
     # km_f = kuma.get_friend_ids()
-    km_fo = kuma.follower_ids()
+    km_fo = kuma.followers_ids()
 
     foer = real.followers_ids()
     foing = real.friends_ids()
@@ -58,7 +58,7 @@ def check():
             try:
                 user_info = real.get_user(user)
                 real.create_friendship(user)
-                msg = f'Followed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}'
+                msg = f'Followed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
                 notify(msg)
                 print(f'    {msg}')
             except Exception as e:
@@ -68,17 +68,22 @@ def check():
     for user in one_way:
         user_info = real.get_user(user)
         real.destroy_friendship(user)
-        msg = f'Unfollowed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}'
+        msg = f'Unfollowed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
         notify(msg)
         print(f'    {msg}')
 
     # kuma
     for user in km_f:
         if user not in km_fo:
-            user_info = kuma.get_user(user)
-            msg = f'!!! [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name} unfollowed you!'
-            notify(msg, user='Kuma')
-            print(f'    {msg}')
+            try:
+                user_info = kuma.get_user(user)
+                msg = f'!!! [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}) unfollowed you!'
+                notify(msg, user='Kuma')
+                print(f'    {msg}')
+            except Exception as e:
+                msg = f'Error: {str(e)}'
+                notify(msg, user='Kuma')
+                print(f'    {msg}')
 
 
 if __name__ == '__main__':
