@@ -21,30 +21,61 @@ def query_token(token_id):
 
 
 def notify(text, user='Real'):
-    text = f'[{user}] {text}'
+    text = f'\[{user}] {text}'
     return os.system(f'/usr/local/bin/notify \"{text}\"')
 
 
 twitter_token = json.loads(query_token('twitter'))
 auth = tweepy.OAuthHandler(twitter_token['consumer_key'], twitter_token['consumer_secret'])
 auth.set_access_token(twitter_token['access_token'], twitter_token['access_token_secret'])
-kuma = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+
+try:  # v3
+    kuma = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+except:
+    kuma = tweepy.API(auth, wait_on_rate_limit=True)
+
+with open('real.p', 'rb') as real_api:
+    real = pickle.load(real_api)
 
 
-with open('real.p', 'rb') as f:
-    real = pickle.load(f)
+class Data:
+    def __init__(self):
+        self.data = {}
+
+    def update(self, key, value):
+        self.data[key] = value
+
+    def get(self, key):
+        return self.data[key]
 
 
-def check():
+fo_data = Data()
+
+
+def check_real():
     print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    km_f = kuma.friends_ids()
-    # km_f = kuma.get_friend_ids()
-    km_fo = kuma.followers_ids()
 
-    foer = real.followers_ids()
-    foing = real.friends_ids()
+    try:  # v3
+        km_f = kuma.friends_ids()
+    except:
+        km_f = kuma.get_friend_ids()
+    try:  # v3
+        km_fo = kuma.followers_ids()
+    except:
+        km_fo = kuma.get_follower_ids()
 
-    # real
+    fo_data.update('km_f', km_f)
+    fo_data.update('km_fo', km_fo)
+
+    try:  # v3
+        foer = real.followers_ids()
+    except:
+        foer = real.get_follower_ids()
+    try:  # v3
+        foing = real.friends_ids()
+    except:
+        foing = real.get_follower_ids()
+
     new_fo = list(set(foer) - set(foing))
     for user in new_fo:
         if user not in km_f:
@@ -72,7 +103,11 @@ def check():
         notify(msg)
         print(f'    {msg}')
 
-    # kuma
+
+def check_kuma():
+    km_f = fo_data.get('km_f')
+    km_fo = fo_data.get('km_fo')
+
     for user in km_f:
         if user not in km_fo:
             try:
@@ -82,7 +117,7 @@ def check():
                 print(f'    {msg}')
             except Exception as e:
                 msg = f'Error: {str(e)}'
-                notify(msg, user='Kuma')
+                # notify(msg, user='Kuma')
                 print(f'    {msg}')
 
 
@@ -91,5 +126,6 @@ if __name__ == '__main__':
     #     check()
     #     time.sleep(3600)
     scheduler = BlockingScheduler()
-    scheduler.add_job(check, 'cron', minute=0)
+    scheduler.add_job(check_real, 'cron', minute=0)
+    scheduler.add_job(check_kuma, 'cron', hour=0, minute=30)
     scheduler.start()
