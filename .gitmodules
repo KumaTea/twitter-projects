@@ -14,3 +14,7 @@
 	path = top-friends
 	url = https://github.com/KumaTea/top-friends
 	branch = main
+[submodule "friends-map"]
+	path = friends-map
+	url = https://github.com/KumaTea/friends-map
+	branch = main
