@@ -28,11 +28,7 @@ def notify(text, user='Real'):
 twitter_token = json.loads(query_token('twitter'))
 auth = tweepy.OAuthHandler(twitter_token['consumer_key'], twitter_token['consumer_secret'])
 auth.set_access_token(twitter_token['access_token'], twitter_token['access_token_secret'])
-
-try:  # v3
-    kuma = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-except:
-    kuma = tweepy.API(auth, wait_on_rate_limit=True)
+kuma = tweepy.API(auth, wait_on_rate_limit=True)
 
 with open('real.p', 'rb') as real_api:
     real = pickle.load(real_api)
@@ -55,40 +51,28 @@ fo_data = Data()
 def check_real():
     print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-    try:  # v3
-        km_f = kuma.friends_ids()
-    except:
-        km_f = kuma.get_friend_ids()
-    try:  # v3
-        km_fo = kuma.followers_ids()
-    except:
-        km_fo = kuma.get_follower_ids()
+    km_f = kuma.get_friend_ids()
+    km_fo = kuma.get_follower_ids()
 
     fo_data.update('km_f', km_f)
     fo_data.update('km_fo', km_fo)
 
-    try:  # v3
-        foer = real.followers_ids()
-    except:
-        foer = real.get_follower_ids()
-    try:  # v3
-        foing = real.friends_ids()
-    except:
-        foing = real.get_follower_ids()
+    foing = real.get_friend_ids()
+    foer = real.get_follower_ids()
 
     new_fo = list(set(foer) - set(foing))
     for user in new_fo:
         if user not in km_f:
-            user_info = real.get_user(user)
-            real.create_block(user)
-            real.destroy_block(user)
+            user_info = real.get_user(user_id=user)
+            real.create_block(user_id=user)
+            real.destroy_block(user_id=user)
             msg = f'Cleared [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
             notify(msg)
             print(f'    {msg}')
         else:
             try:
-                user_info = real.get_user(user)
-                real.create_friendship(user)
+                user_info = real.get_user(user_id=user)
+                real.create_friendship(user_id=user)
                 msg = f'Followed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
                 notify(msg)
                 print(f'    {msg}')
@@ -97,8 +81,8 @@ def check_real():
 
     one_way = list(set(foing) - set(foer))
     for user in one_way:
-        user_info = real.get_user(user)
-        real.destroy_friendship(user)
+        user_info = real.get_user(user_id=user)
+        real.destroy_friendship(user_id=user)
         msg = f'Unfollowed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
         notify(msg)
         print(f'    {msg}')
@@ -111,7 +95,7 @@ def check_kuma():
     for user in km_f:
         if user not in km_fo:
             try:
-                user_info = kuma.get_user(user)
+                user_info = kuma.get_user(user_id=user)
                 msg = f'!!! [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name}) unfollowed you!'
                 notify(msg, user='Kuma')
                 print(f'    {msg}')
