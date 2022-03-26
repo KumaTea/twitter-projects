@@ -40,6 +40,10 @@ class Data:
 
     def update(self, key, value):
         self.data[key] = value
+        length = ''
+        if type(value) is list:
+            length = len(value)
+        print('[db] u: ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + f' l: {length}')
 
     def get(self, key):
         return self.data[key]
@@ -49,11 +53,12 @@ fo_data = Data()
 
 
 def check_real():
-    print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print('[real] ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     km_f = kuma.get_friend_ids()
-    km_fo = kuma.get_follower_ids()
-
+    km_fo = []
+    for fo in tweepy.Cursor(kuma.get_follower_ids).items():
+        km_fo.append(fo)
     fo_data.update('km_f', km_f)
     fo_data.update('km_fo', km_fo)
 
@@ -89,6 +94,8 @@ def check_real():
 
 
 def check_kuma():
+    print('[kuma] ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
     km_f = fo_data.get('km_f')
     km_fo = fo_data.get('km_fo')
 
@@ -109,7 +116,7 @@ if __name__ == '__main__':
     # while 114514:
     #     check()
     #     time.sleep(3600)
-    scheduler = BlockingScheduler()
+    scheduler = BlockingScheduler(timezone='Asia/Shanghai')
     scheduler.add_job(check_real, 'cron', minute=0)
     scheduler.add_job(check_kuma, 'cron', hour=0, minute=30)
     scheduler.start()
