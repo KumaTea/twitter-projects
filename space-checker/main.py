@@ -6,7 +6,10 @@ import logging
 from time import time, sleep
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.wait import WebDriverWait
 from apscheduler.schedulers.blocking import BlockingScheduler
+
 
 try:
     from checkList import user_list
@@ -44,24 +47,30 @@ options = webdriver.ChromeOptions()
 # options.add_argument('--headless')
 options.add_argument('--headless=chrome')
 options.add_argument(f'--user-data-dir={chrome_profile_path}')
+options.add_argument('--disable-gpu')
+options.add_argument('--disable-dev-shm-usage')
 
 
 def get_driver():
     return webdriver.Chrome(service=Service(chromedriver_path), options=options)
 
 
-def get_src(url, delay=5):
+def load_tweet_complete(driver):
+    return 'data-testid="tweet"' in driver.page_source
+
+
+def get_src(url, timeout=30):
     t0 = time()
     try:
-        logging.info("{:.3f}s: Task: {}".format(time()-t0, url))
+        logging.debug("{:.3f}s: Task: {}".format(time()-t0, url))
         driver = get_driver()
-        logging.info("{:.3f}s: Get: driver".format(time()-t0))
+        logging.debug("{:.3f}s: Get: driver".format(time()-t0))
         driver.get(url)
-        logging.info("{:.3f}s: Getting: {}".format(time()-t0, url))
-        sleep(delay)
+        logging.debug("{:.3f}s: Getting: {}".format(time()-t0, url))
+        WebDriverWait(driver, timeout).until(load_tweet_complete)
         source = driver.page_source
         driver.quit()
-        logging.info("{:.3f}s: Quit".format(time()-t0))
+        logging.debug("{:.3f}s: Quit".format(time()-t0))
         return source
     except Exception as e:
         logging.error('{:.3f}s: Error: {}'.format(time()-t0, str(e)))
@@ -69,6 +78,7 @@ def get_src(url, delay=5):
 
 
 def check_space(user_id):
+    logging.info(f'Checking: {user_id}')
     try:
         user = kuma.get_user(user_id=user_id)
         user_name = user.screen_name
@@ -110,6 +120,11 @@ config = {
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+    logging.warning('Checking: ' + ', '.join([str(i) for i in user_list]))
     scheduler = BlockingScheduler(timezone='Asia/Shanghai')
     scheduler.add_job(check_space_list, 'cron', hour=config['lazy']['time'], minute=config['lazy']['freq'])
     scheduler.add_job(check_space_list, 'cron', hour=config['normal']['time'], minute=config['normal']['freq'])
