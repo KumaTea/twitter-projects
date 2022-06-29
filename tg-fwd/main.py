@@ -110,12 +110,12 @@ def forward_tweet(tweet, no_notify=True):
     if urls:
         for url in urls:
             tweet_text.replace(url['url'], f'[{url["display_url"]}]({url["expanded_url"]})')
-    tweet_text = escape_markdown(tweet_text, version=2)
     tweet_time = get_tweet_time(tweet)
     tweet_url = f'https://twitter.com/{tweet.user.screen_name}/status/{tweet.id}'
-    text = f'[里推 {tweet_time}]({tweet_url})\n\n{tweet_text}'
 
     if tweet_type == 'text':
+        tweet_text = escape_markdown(tweet_text, version=2)
+        text = f'#里推 [{tweet_time}]({tweet_url})\n\n{tweet_text}'
         tg.send_message(
             channel_id,
             text,
@@ -127,10 +127,11 @@ def forward_tweet(tweet, no_notify=True):
         # check if pure media without text
         # in this case text is media url
         if tweet.text == get_media_entities_url(tweet):
-            text = f'[里推 {tweet_time}]({tweet_url})'
+            text = f'#里推 [{tweet_time}]({tweet_url})'
         else:
-            tweet_text = tweet_text.replace(escape_markdown(get_media_entities_url(tweet), version=2), '')
-            text = f'[里推 {tweet_time}]({tweet_url})\n\n{tweet_text}'
+            tweet_text = tweet_text.replace(get_media_entities_url(tweet), '')
+            tweet_text = escape_markdown(tweet_text, version=2)
+            text = f'#里推 [{tweet_time}]({tweet_url})\n\n{tweet_text}'
 
         if tweet_type == 'photo':
             if len(get_tweet_photos(tweet)) > 1:
