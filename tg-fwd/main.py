@@ -7,6 +7,7 @@ import json
 import base64
 import tweepy
 import logging
+from zoneinfo import ZoneInfo
 from telegram import Bot, InputMediaPhoto
 from telegram.utils.helpers import escape_markdown
 
@@ -15,6 +16,7 @@ twitter_id = 1243884873451835392  # @realKumaTea
 tg_bot_id = 781791363  # @KumaTea_bot
 channel_id = -1001713500645  # @KumaLogs
 last_id_file = 'last_id.txt'
+delay_time = 60 * 60  # 1 hour
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -93,33 +95,46 @@ def prepare_album(tweet, caption=None, parse_mode=None):
     return album
 
 
+def get_tweet_time(tweet):
+    tweet_time = tweet.created_at.astimezone(tz=ZoneInfo('Asia/Shanghai'))
+    tweet_time_str = tweet_time.strftime('%m/%d %H:%M')
+    return tweet_time_str
+
+
 def forward_tweet(tweet, no_notify=True):
     tweet_type = get_tweet_type(tweet)
     urls = get_urls_in_tweet(tweet)
 
-    text = tweet.text
-    md = False
+    tweet_text = tweet.text
+    tweet_text = escape_markdown(tweet_text, version=2)
 
     if urls:
-        md = True
-        text = escape_markdown(text, version=2)
         for url in urls:
-            text.replace(url['url'], f'[{url["display_url"]}]({url["expanded_url"]})')
+            tweet_text.replace(url['url'], f'[{url["display_url"]}]({url["expanded_url"]})')
+
+    tweet_time = get_tweet_time(tweet)
+    tweet_url = f'https://twitter.com/{tweet.user.screen_name}/status/{tweet.id}'
+    text = f'[里推 {tweet_time}]({tweet_url})\n\n{tweet_text}'
 
     if tweet_type == 'text':
-        tg.send_message(channel_id, text, disable_notification=no_notify, parse_mode='MarkdownV2' if md else None)
+        tg.send_message(
+            channel_id,
+            text,
+            disable_web_page_preview=True,
+            disable_notification=no_notify,
+            parse_mode='MarkdownV2'
+        )
     else:
         # check if pure media without text
         # in this case text is media url
-        if text == get_media_entities_url(tweet):
-            text = ''
-            md = False
+        if tweet.text == get_media_entities_url(tweet):
+            text = f'[里推 {tweet_time}]({tweet_url})'
 
         if tweet_type == 'photo':
             if len(get_tweet_photos(tweet)) > 1:
                 tg.send_media_group(
                     channel_id,
-                    prepare_album(tweet, caption=text, parse_mode='MarkdownV2' if md else None),
+                    prepare_album(tweet, caption=text, parse_mode='MarkdownV2'),
                     disable_notification=no_notify
                 )
             else:
@@ -128,7 +143,7 @@ def forward_tweet(tweet, no_notify=True):
                     get_tweet_photos(tweet)[0],
                     caption=text,
                     disable_notification=no_notify,
-                    parse_mode='MarkdownV2' if md else None
+                    parse_mode='MarkdownV2'
                 )
         elif tweet_type == 'video':
             tg.send_video(
@@ -136,7 +151,7 @@ def forward_tweet(tweet, no_notify=True):
                 get_tweet_video(tweet),
                 caption=text,
                 disable_notification=no_notify,
-                parse_mode='MarkdownV2' if md else None
+                parse_mode='MarkdownV2'
             )
         else:  # gif
             tg.send_animation(
@@ -144,7 +159,7 @@ def forward_tweet(tweet, no_notify=True):
                 get_tweet_gif(tweet),
                 caption=text,
                 disable_notification=no_notify,
-                parse_mode='MarkdownV2' if md else None
+                parse_mode='MarkdownV2'
             )
 
     logging.info(f'Forwarded {tweet_type} tweet: {tweet.id}')
@@ -154,7 +169,7 @@ def forward_tweet(tweet, no_notify=True):
 def sync_tweets(user_id, last_id):
     # forward tweet in reverse order
     for tweet in reversed(get_new_tweets(user_id, last_id)):
-        if forward_tweet(tweet):
+        if forward_tweet(tweet, no_notify=True):
             last_id = tweet.id
     return last_id
 
