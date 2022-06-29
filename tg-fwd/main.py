@@ -8,6 +8,7 @@ import base64
 import tweepy
 import logging
 from zoneinfo import ZoneInfo
+from datetime import datetime
 from telegram import Bot, InputMediaPhoto
 from telegram.utils.helpers import escape_markdown
 
@@ -106,12 +107,10 @@ def forward_tweet(tweet, no_notify=True):
     urls = get_urls_in_tweet(tweet)
 
     tweet_text = tweet.text
-    tweet_text = escape_markdown(tweet_text, version=2)
-
     if urls:
         for url in urls:
             tweet_text.replace(url['url'], f'[{url["display_url"]}]({url["expanded_url"]})')
-
+    tweet_text = escape_markdown(tweet_text, version=2)
     tweet_time = get_tweet_time(tweet)
     tweet_url = f'https://twitter.com/{tweet.user.screen_name}/status/{tweet.id}'
     text = f'[里推 {tweet_time}]({tweet_url})\n\n{tweet_text}'
@@ -129,6 +128,9 @@ def forward_tweet(tweet, no_notify=True):
         # in this case text is media url
         if tweet.text == get_media_entities_url(tweet):
             text = f'[里推 {tweet_time}]({tweet_url})'
+        else:
+            tweet_text = tweet_text.replace(escape_markdown(get_media_entities_url(tweet), version=2), '')
+            text = f'[里推 {tweet_time}]({tweet_url})\n\n{tweet_text}'
 
         if tweet_type == 'photo':
             if len(get_tweet_photos(tweet)) > 1:
@@ -168,10 +170,12 @@ def forward_tweet(tweet, no_notify=True):
 
 def sync_tweets(user_id, last_id):
     # forward tweet in reverse order
+    new_last_id = last_id
     for tweet in reversed(get_new_tweets(user_id, last_id)):
-        if forward_tweet(tweet, no_notify=True):
-            last_id = tweet.id
-    return last_id
+        if (datetime.now(tz=ZoneInfo('Asia/Shanghai')) - tweet.created_at.astimezone(tz=ZoneInfo('Asia/Shanghai'))).seconds > delay_time:
+            if forward_tweet(tweet, no_notify=True):
+                new_last_id = tweet.id
+    return new_last_id
 
 
 def main():
