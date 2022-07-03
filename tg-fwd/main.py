@@ -2,7 +2,6 @@
 
 
 import os
-import sys
 import json
 import base64
 import tweepy
@@ -44,7 +43,17 @@ def get_latest_tweet_id(user_id):
 
 
 def get_new_tweets(user_id, last_id):
-    return twi.user_timeline(user_id=user_id, since_id=last_id, exclude_replies=True, include_rts=False)
+    tweets = twi.user_timeline(
+        user_id=user_id,
+        since_id=last_id,
+        exclude_replies=True,
+        include_rts=False,
+        tweet_mode='extended'
+    )
+    for i in range(len(tweets)):
+        if tweets[i].truncated:
+            tweets[i] = twi.get_status(tweets[i].id, tweet_mode='extended')
+    return tweets
 
 
 def get_tweet_type(tweet):
@@ -112,10 +121,11 @@ def forward_tweet(tweet, no_notify=True):
             tweet_text.replace(url['url'], f'[{url["display_url"]}]({url["expanded_url"]})')
     tweet_time = get_tweet_time(tweet)
     tweet_url = f'https://twitter.com/{tweet.user.screen_name}/status/{tweet.id}'
+    tweet_info = escape_markdown('#里推 ', version=2) + f'[{tweet_time}]({tweet_url})'
 
     if tweet_type == 'text':
         tweet_text = escape_markdown(tweet_text, version=2)
-        text = f'#里推 [{tweet_time}]({tweet_url})\n\n{tweet_text}'
+        text = f'{tweet_info}\n\n{tweet_text}'
         tg.send_message(
             channel_id,
             text,
@@ -127,11 +137,11 @@ def forward_tweet(tweet, no_notify=True):
         # check if pure media without text
         # in this case text is media url
         if tweet.text == get_media_entities_url(tweet):
-            text = f'#里推 [{tweet_time}]({tweet_url})'
+            text = tweet_info
         else:
             tweet_text = tweet_text.replace(get_media_entities_url(tweet), '')
             tweet_text = escape_markdown(tweet_text, version=2)
-            text = f'#里推 [{tweet_time}]({tweet_url})\n\n{tweet_text}'
+            text = f'{tweet_info}\n\n{tweet_text}'
 
         if tweet_type == 'photo':
             if len(get_tweet_photos(tweet)) > 1:
@@ -201,4 +211,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    sys.exit(0)
