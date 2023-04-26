@@ -8,6 +8,7 @@ import os
 import tweepy
 import logging
 # import pickle
+import subprocess
 import configparser
 from tqdm import tqdm
 from tweepy.errors import TweepyException as TweepError
@@ -44,6 +45,15 @@ auth = tweepy.OAuth1UserHandler(
     config['twitter']['acc_sec']
 )
 kuma = tweepy.API(auth, wait_on_rate_limit=True)
+
+safe_auth = tweepy.OAuth1UserHandler(
+    config['twitter']['api_key'],
+    config['twitter']['api_sec'],
+    config['safe']['acc_tok'],
+    config['safe']['acc_sec']
+)
+safe = tweepy.API(safe_auth, wait_on_rate_limit=True)
+
 
 try:
     kuma._me = kuma.me()  # noqa
@@ -92,7 +102,11 @@ def get_tweet(tweet_id, pbar=None):
             kuma_db.cached_tweets[tweet_id] = tweet
             return tweet
         except tweepy.errors.Forbidden:
-            return None
+            return 'locked'
+        except tweepy.errors.Unauthorized:
+            return 'blocked'
+        except tweepy.errors.NotFound:
+            return 'deleted'
 
 
 def get_tweet_type(tweet):
@@ -146,14 +160,17 @@ def check_locked(host, user):
         target_id = user
     else:
         target_screen_name = user
-    result = host.get_friendship(
-        source_id=host._me.id,
-        target_id=target_id,
-        target_screen_name=target_screen_name)
-    if result[0].blocked_by:
-        return 1
-    else:
-        return 0  # not -1 for identifying locked
+    try:
+        result = host.get_friendship(
+            source_id=host._me.id,
+            target_id=target_id,
+            target_screen_name=target_screen_name)
+        if result[0].blocked_by:
+            return 1
+        else:
+            return 0  # not -1 for identifying locked
+    except:
+            return 0
 
 
 def check_blocked(host, user, pbar=None):
@@ -195,12 +212,32 @@ def check_muting(source_id=kuma._me.id, source_screen_name=kuma._me.screen_name,
     return result.muting
 
 
+def get_user_by_tweet_id(tweet_id):
+    # since main account is block
+    # we use the safe auth to check
+    tweet = safe.get_status(tweet_id)
+    return tweet.user
+
+
 def get_thread_tweets(tweet_id, pbar=None):
     thread = []
     while len(thread) < max_thread_length:
         tweet = get_tweet(tweet_id, pbar)
-        if not tweet:
-            inform(f'[twi] Tweet {tweet_id} not found.', pbar)
+        if type(tweet) is str:
+            inform(f'[twi] Tweet {tweet_id} status: {tweet}', pbar)
+            if tweet == 'blocked':
+                tweet_user = get_user_by_tweet_id(tweet_id)
+                relationship = kuma.get_friendship(source_id=kuma._me.id, target_id=tweet_user.id)[0]
+                if not relationship.blocking:
+                    kuma.create_block(user_id=tweet_user.id)
+                    subprocess.run([
+                        '/usr/bin/notify',
+                        '[tl] Found and blocked back: https://twitter.com/{}'.format(tweet_user.screen_name)])
+                else:
+                    subprocess.run([
+                        '/usr/bin/notify',
+                        '[tl] Found already blocked: https://twitter.com/{}'.format(tweet_user.screen_name)])
+                inform(f'[twi] Blocked {tweet_user.screen_name} (id: {tweet_user.id})', pbar)
             break
         thread.append(tweet)
         if tweet.in_reply_to_status_id:
@@ -252,8 +289,11 @@ def clean_tl():
                 kuma.create_block(user_id=user)
                 logging.warning(f'[kuma] blocked @{to_mute[user]}')
             else:
-                kuma.create_mute(user_id=user)
-                p.set_description(f'[kuma] muted @{to_mute[user]}')
+                try:
+                    kuma.create_mute(user_id=user)
+                    p.set_description(f'[kuma] muted @{to_mute[user]}')
+                except:
+                    logger.error(f'[kuma] Failed to mute @{to_mute[user]}')
     if tl:
         tl = sorted(tl, key=lambda x: x.id, reverse=True)
         kuma_db.reset(last_id=tl[0].id)
