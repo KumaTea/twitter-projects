@@ -16,7 +16,7 @@ twitter_id = 1243884873451835392  # @realKumaTea
 tg_bot_id = 781791363  # @KumaTea_bot
 channel_id = -1001713500645  # @KumaLogs
 last_id_file = 'last_id.txt'
-delay_time = 60 * 60  # 1 hour
+delay_time = 60 * 10  # 10 minutes
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -182,8 +182,16 @@ def forward_tweet(tweet, no_notify=True):
 def sync_tweets(user_id, last_id):
     # forward tweet in reverse order
     new_last_id = last_id
-    for tweet in reversed(get_new_tweets(user_id, last_id)):
-        if (datetime.now(tz=ZoneInfo('Asia/Shanghai')) - tweet.created_at.astimezone(tz=ZoneInfo('Asia/Shanghai'))).seconds > delay_time:
+    new_tweets = get_new_tweets(user_id, last_id)
+    # add attribute 'text' by copying 'fill_text'
+    for tweet in new_tweets:
+        if not getattr(tweet, 'text', None):
+            tweet.text = tweet.full_text
+    logging.info(f'  New tweets: {len(new_tweets)}')
+    for tweet in reversed(new_tweets):
+        if (datetime.now(
+                tz=ZoneInfo('Asia/Shanghai')
+        ) - tweet.created_at.astimezone(tz=ZoneInfo('Asia/Shanghai'))).seconds > delay_time:
             if forward_tweet(tweet, no_notify=True):
                 new_last_id = tweet.id
     return new_last_id
