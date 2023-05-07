@@ -22,7 +22,7 @@ def query_token(token_id):
 
 def notify(text, user='Real'):
     text = f'\[{user}] {text}'
-    return os.system(f'/usr/local/bin/notify \"{text}\"')
+    return os.system(f'/usr/bin/notify \"{text}\"')
 
 
 twitter_token = json.loads(query_token('twitter'))
@@ -32,6 +32,38 @@ kuma = tweepy.API(auth, wait_on_rate_limit=True)
 
 with open('real.p', 'rb') as real_api:
     real = pickle.load(real_api)
+
+
+def check_locked(host, user):
+    target_id = None
+    target_screen_name = None
+    if type(user) is int:
+        target_id = user
+    else:
+        target_screen_name = user
+    result = host.get_friendship(
+        source_id=host.id,
+        target_id=target_id,
+        target_screen_name=target_screen_name)
+    if result[0].blocked_by:
+        return 1
+    else:
+        return 0  # not -1 for identifying locked
+
+
+def check_blocked(host, user):
+    try:
+        tl = host.user_timeline(user_id=user, exclude_replies=False, include_rts=True)
+        return -1
+    except tweepy.TweepyException as e:
+        if 'blocked' in str(e):
+            return 1
+        elif 'authorized' in str(e):
+            return check_locked(host, user)
+        elif 'exist' in str(e):
+            return 0
+        else:
+            raise RuntimeError('Unknown error:', str(e))
 
 
 class Data:
@@ -52,15 +84,33 @@ class Data:
 fo_data = Data()
 
 
-def check_real():
-    print('[real] ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
+def kuma_mute_and_update():
+    old_fo = fo_data.get('km_fo')
     km_f = kuma.get_friend_ids()
     km_fo = []
     for fo in tweepy.Cursor(kuma.get_follower_ids).items():
         km_fo.append(fo)
     fo_data.update('km_f', km_f)
     fo_data.update('km_fo', km_fo)
+
+    gone = list(set(old_fo) - set(km_fo))
+    for i in gone:
+        try:
+            if (check_blocked(kuma, i) > 0) or (check_blocked(real, i) > 0):
+                kuma.create_block(user_id=i)
+                print('!!!B: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
+            else:
+                kuma.create_mute(user_id=i)
+                print('Mute: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
+        except:
+            print(i)
+
+
+def check_real():
+    print('[real] ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    kuma_mute_and_update()
+    km_f = fo_data.get('km_f')
 
     foing = real.get_friend_ids()
     foer = real.get_follower_ids()

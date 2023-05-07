@@ -234,9 +234,10 @@ def get_thread_tweets(tweet_id, pbar=None):
                         '/usr/bin/notify',
                         '[tl] Found and blocked back: https://twitter.com/{}'.format(tweet_user.screen_name)])
                 else:
-                    subprocess.run([
-                        '/usr/bin/notify',
-                        '[tl] Found already blocked: https://twitter.com/{}'.format(tweet_user.screen_name)])
+                    # subprocess.run([
+                    #     '/usr/bin/notify',
+                    #     '[tl] Found already blocked: https://twitter.com/{}'.format(tweet_user.screen_name)])
+                    pass
                 inform(f'[twi] Blocked {tweet_user.screen_name} (id: {tweet_user.id})', pbar)
             break
         thread.append(tweet)
