@@ -84,14 +84,19 @@ class Data:
 fo_data = Data()
 
 
-def kuma_mute_and_update():
-    old_fo = fo_data.get('km_fo')
+def update():
     km_f = kuma.get_friend_ids()
     km_fo = []
     for fo in tweepy.Cursor(kuma.get_follower_ids).items():
         km_fo.append(fo)
     fo_data.update('km_f', km_f)
     fo_data.update('km_fo', km_fo)
+    return km_f, km_fo
+
+
+def kuma_mute_and_update():
+    old_fo = fo_data.get('km_fo')
+    km_f, km_fo = update()
 
     gone = list(set(old_fo) - set(km_fo))
     for i in gone:
@@ -163,9 +168,7 @@ def check_kuma():
 
 
 if __name__ == '__main__':
-    # while 114514:
-    #     check()
-    #     time.sleep(3600)
+    update()
     scheduler = BlockingScheduler(timezone='Asia/Shanghai')
     scheduler.add_job(check_real, 'cron', minute=0)
     scheduler.add_job(check_kuma, 'cron', hour=0, minute=30)
