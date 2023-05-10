@@ -11,6 +11,7 @@ import logging
 import subprocess
 import configparser
 from tqdm import tqdm
+from datetime import datetime
 from tweepy.errors import TweepyException as TweepError
 from apscheduler.schedulers.blocking import BlockingScheduler
 
@@ -25,17 +26,19 @@ config.read(config_file)
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
+    level=logging.WARNING,
+    datefmt='%m-%d %H:%M')
 logger = logging.getLogger(__name__)
+logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 
 def inform(message, pbar=None):
+    log_msg = datetime.now().strftime('%m-%d %H:%M') + '\t' + message
     if pbar:
         # tqdm progress bar description
-        pbar.set_description(message)
+        pbar.set_description(log_msg)
     else:
-        logger.info(message)
+        logger.info(log_msg)
 
 
 auth = tweepy.OAuth1UserHandler(
@@ -70,10 +73,10 @@ class TwitterDB:
 
     def update(self, key, value):
         self.data[key] = value
-        logger.info('[db] Updated {}.'.format(key))
+        # logger.info('[db] Updated {}.'.format(key))
 
     def get(self, key):
-        logger.info('[db] Got {}, len:{}.'.format(key, len(self.data.get(key, []))))
+        # logger.info('[db] Got {}, len:{}.'.format(key, len(self.data.get(key, []))))
         return self.data.get(key, None)
 
     def reset(self, last_id):
@@ -82,17 +85,17 @@ class TwitterDB:
             with open(last_id_file, 'w') as f:
                 f.write(str(last_id))
 
-        logger.info('[db] Cached tweets: {}, cache hits: {}'.format(len(self.cached_tweets), self.cache_hits))
+        # logger.info('[db] Cached tweets: {}, cache hits: {}'.format(len(self.cached_tweets), self.cache_hits))
         self.cached_tweets = {}
         self.cache_hits = 0
-        return logger.info('[db] Reset.')
+        # return logger.info('[db] Reset.')
 
 
 kuma_db = TwitterDB()
 
 
 def get_tweet(tweet_id, pbar=None):
-    inform(f'[twi] Getting tweet {tweet_id}', pbar)
+    # inform(f'[twi] Getting tweet {tweet_id}', pbar)
     if tweet_id in kuma_db.cached_tweets:
         kuma_db.cache_hits += 1
         return kuma_db.cached_tweets[tweet_id]
@@ -233,12 +236,12 @@ def get_thread_tweets(tweet_id, pbar=None):
                     subprocess.run([
                         '/usr/bin/notify',
                         '[tl] Found and blocked back: https://twitter.com/{}'.format(tweet_user.screen_name)])
+                    logger.warning(f'[twi] Found and blocked {tweet_user.screen_name} (id: {tweet_user.id})', pbar)
                 else:
                     # subprocess.run([
                     #     '/usr/bin/notify',
                     #     '[tl] Found already blocked: https://twitter.com/{}'.format(tweet_user.screen_name)])
-                    pass
-                inform(f'[twi] Blocked {tweet_user.screen_name} (id: {tweet_user.id})', pbar)
+                    logger.info(f'[twi] Already blocked {tweet_user.screen_name} (id: {tweet_user.id})', pbar)
             break
         thread.append(tweet)
         if tweet.in_reply_to_status_id:
@@ -258,14 +261,18 @@ def get_thread_tweets(tweet_id, pbar=None):
 def clean_tl():
     km_fo = kuma_db.get('km_fo')
     last_id = kuma_db.last_id or None
-    logger.info(f'[twi] Last id: {last_id} (from db)')
+    # logger.info(f'[twi] Last id: {last_id} (from db)')
 
     to_mute = {}
     to_mute_ids = []
     tl = kuma.home_timeline(count=default_max_tweets, since_id=last_id)
-    logger.info(f'[twi] Got {len(tl)} tweets.')
+    # logger.info(f'[twi] Got {len(tl)} tweets.')
 
-    pbar = tqdm(tl, desc='[twi] Processing tweets')
+    if not tl:
+        return None
+
+    now_str = datetime.now().strftime('%m-%d %H:%M')
+    pbar = tqdm(tl, desc=now_str + '\t' + '[twi] Processing tweets')
     for tweet in pbar:
         kuma_db.cached_tweets[tweet.id] = tweet
         thread = get_thread_tweets(tweet.id, pbar)
@@ -282,8 +289,8 @@ def clean_tl():
                     to_mute[t.user.id] = t.user.screen_name
                     to_mute_ids.append(t.user.id)
     to_mute_ids = list(set(to_mute_ids))
-    logger.info(f'[twi] Found {len(to_mute_ids)} users to mute.')
     if to_mute_ids:
+        logging.warning(f'[twi] Found {len(to_mute_ids)} users to mute.')
         for user in (p := tqdm(to_mute_ids)):
             blocked = check_blocked(kuma, user, p)
             if blocked == 1:
@@ -292,14 +299,14 @@ def clean_tl():
             else:
                 try:
                     kuma.create_mute(user_id=user)
-                    p.set_description(f'[kuma] muted @{to_mute[user]}')
+                    logging.warning(f'[kuma] muted @{to_mute[user]}')
                 except:
                     logger.error(f'[kuma] Failed to mute @{to_mute[user]}')
     if tl:
         tl = sorted(tl, key=lambda x: x.id, reverse=True)
         kuma_db.reset(last_id=tl[0].id)
 
-    return logging.info('[kuma] checked')
+    # return logging.info('[kuma] checked')
 
 
 if __name__ == '__main__':
