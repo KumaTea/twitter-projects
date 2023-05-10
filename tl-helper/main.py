@@ -177,7 +177,7 @@ def check_locked(host, user):
 
 
 def check_blocked(host, user, pbar=None):
-    inform(f'[twi] Checking {user}...', pbar)
+    # inform(f'[twi] Checking {user}...', pbar)
     try:
         _ = host.user_timeline(user_id=user, exclude_replies=False, include_rts=True)
         return -1
@@ -227,8 +227,9 @@ def get_thread_tweets(tweet_id, pbar=None):
     while len(thread) < max_thread_length:
         tweet = get_tweet(tweet_id, pbar)
         if type(tweet) is str:
-            inform(f'[twi] Tweet {tweet_id} status: {tweet}', pbar)
+            # inform(f'[twi] Tweet {tweet_id} status: {tweet}', pbar)
             if tweet == 'blocked':
+                inform(f'[twi] Tweet {tweet_id} status: {tweet}', pbar)
                 tweet_user = get_user_by_tweet_id(tweet_id)
                 relationship = kuma.get_friendship(source_id=kuma._me.id, target_id=tweet_user.id)[0]
                 if not relationship.blocking:
@@ -245,11 +246,11 @@ def get_thread_tweets(tweet_id, pbar=None):
             break
         thread.append(tweet)
         if tweet.in_reply_to_status_id:
-            inform(f'[twi] Found reply: {tweet.in_reply_to_status_id} -> {tweet.id}', pbar)
+            # inform(f'[twi] Found reply: {tweet.in_reply_to_status_id} -> {tweet.id}', pbar)
             tweet_id = tweet.in_reply_to_status_id
         # if quote
         elif tweet.is_quote_status:
-            inform(f'[twi] Found quote: {tweet.quoted_status_id} -> {tweet.id}', pbar)
+            # inform(f'[twi] Found quote: {tweet.quoted_status_id} -> {tweet.id}', pbar)
             tweet_id = tweet.quoted_status_id
         else:
             break
@@ -272,7 +273,8 @@ def clean_tl():
         return None
 
     now_str = datetime.now().strftime('%m-%d %H:%M')
-    pbar = tqdm(tl, desc=now_str + '\t' + '[twi] Processing tweets')
+    # pbar = tqdm(tl, desc=now_str + '\t' + '[twi] Processing tweets')
+    pbar = tl
     for tweet in pbar:
         kuma_db.cached_tweets[tweet.id] = tweet
         thread = get_thread_tweets(tweet.id, pbar)
@@ -281,11 +283,11 @@ def clean_tl():
                 if t.entities and t.entities['user_mentions']:
                     for user in t.entities['user_mentions']:
                         if user['id'] not in km_fo:
-                            inform(f'[twi] Found mention: @{user["screen_name"]} in {t.id}', pbar)
+                            # inform(f'[twi] Found mention: @{user["screen_name"]} in {t.id}', pbar)
                             to_mute[user['id']] = user['screen_name']
                             to_mute_ids.append(user['id'])
                 if t.user.id not in km_fo:
-                    inform(f'[twi] Found text: @{t.user.screen_name} in {t.id}', pbar)
+                    # inform(f'[twi] Found text: @{t.user.screen_name} in {t.id}', pbar)
                     to_mute[t.user.id] = t.user.screen_name
                     to_mute_ids.append(t.user.id)
     to_mute_ids = list(set(to_mute_ids))

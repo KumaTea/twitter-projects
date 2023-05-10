@@ -103,10 +103,10 @@ def kuma_mute_and_update():
         try:
             if (check_blocked(kuma, i) > 0) or (check_blocked(real, i) > 0):
                 kuma.create_block(user_id=i)
-                print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\t!!!B: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
+                print(datetime.now().strftime('%m-%d %H:%M') + '\t!!!B: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
             else:
                 kuma.create_mute(user_id=i)
-                print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\tMute: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
+                print(datetime.now().strftime('%m-%d %H:%M') + '\tMute: https://twitter.com/' + kuma.get_user(user_id=i).screen_name)
         except:
             print(i)
 
@@ -136,7 +136,7 @@ def check_real():
                 notify(msg)
             except Exception as e:
                 msg = f'Error: {str(e)}'
-        print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\t' + msg)
+        print(datetime.now().strftime('%m-%d %H:%M') + '\t' + msg)
 
     one_way = list(set(foing) - set(foer))
     for user in one_way:
@@ -144,7 +144,7 @@ def check_real():
         real.destroy_friendship(user_id=user)
         msg = f'Unfollowed [@{user_info.screen_name}](https://twitter.com/{user_info.screen_name})'
         notify(msg)
-        print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\t' + msg)
+        print(datetime.now().strftime('%m-%d %H:%M') + '\t' + msg)
 
 
 def check_kuma():
@@ -161,7 +161,7 @@ def check_kuma():
                 notify(msg, user='Kuma')
             except Exception as e:
                 msg = f'Error: {str(e)}'
-            print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\t' + msg)
+            print(datetime.now().strftime('%m-%d %H:%M') + '\t' + msg)
 
 
 if __name__ == '__main__':
