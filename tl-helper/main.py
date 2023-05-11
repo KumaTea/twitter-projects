@@ -34,7 +34,7 @@ logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 def inform(message, pbar=None):
     log_msg = datetime.now().strftime('%m-%d %H:%M') + '\t' + message
-    if pbar:
+    if isinstance(pbar, tqdm):
         # tqdm progress bar description
         pbar.set_description(log_msg)
     else:
@@ -94,7 +94,7 @@ class TwitterDB:
 kuma_db = TwitterDB()
 
 
-def get_tweet(tweet_id, pbar=None):
+def get_tweet(tweet_id):
     # inform(f'[twi] Getting tweet {tweet_id}', pbar)
     if tweet_id in kuma_db.cached_tweets:
         kuma_db.cache_hits += 1
@@ -176,7 +176,7 @@ def check_locked(host, user):
             return 0
 
 
-def check_blocked(host, user, pbar=None):
+def check_blocked(host, user):
     # inform(f'[twi] Checking {user}...', pbar)
     try:
         _ = host.user_timeline(user_id=user, exclude_replies=False, include_rts=True)
@@ -225,7 +225,7 @@ def get_user_by_tweet_id(tweet_id):
 def get_thread_tweets(tweet_id, pbar=None):
     thread = []
     while len(thread) < max_thread_length:
-        tweet = get_tweet(tweet_id, pbar)
+        tweet = get_tweet(tweet_id)
         if type(tweet) is str:
             # inform(f'[twi] Tweet {tweet_id} status: {tweet}', pbar)
             if tweet == 'blocked':
@@ -274,10 +274,9 @@ def clean_tl():
 
     now_str = datetime.now().strftime('%m-%d %H:%M')
     # pbar = tqdm(tl, desc=now_str + '\t' + '[twi] Processing tweets')
-    pbar = tl
-    for tweet in pbar:
+    for tweet in tl:
         kuma_db.cached_tweets[tweet.id] = tweet
-        thread = get_thread_tweets(tweet.id, pbar)
+        thread = get_thread_tweets(tweet.id)
         for t in thread:
             if get_tweet_type(t) == 'text':
                 if t.entities and t.entities['user_mentions']:
@@ -293,8 +292,8 @@ def clean_tl():
     to_mute_ids = list(set(to_mute_ids))
     if to_mute_ids:
         logging.warning(f'[twi] Found {len(to_mute_ids)} users to mute.')
-        for user in (p := tqdm(to_mute_ids)):
-            blocked = check_blocked(kuma, user, p)
+        for user in to_mute_ids:
+            blocked = check_blocked(kuma, user)
             if blocked == 1:
                 kuma.create_block(user_id=user)
                 logging.warning(f'[kuma] blocked @{to_mute[user]}')
